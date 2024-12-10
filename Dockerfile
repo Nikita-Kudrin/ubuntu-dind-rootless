@@ -11,6 +11,13 @@
 
 FROM ubuntu:22.04
 
+ENV XDG_RUNTIME_DIR="/home/rootless/.docker/run"
+ENV PATH="/home/rootless/bin:$PATH"
+ENV DOCKER_HOST="unix:///home/rootless/.docker/run/docker.sock"
+
+ENV DOCKER_BUILDX_VERSION 0.19.2
+ENV DOCKER_COMPOSE_VERSION 2.31.0
+
 RUN set -eux; \
     apt-get update && apt-get install --no-install-recommends -y \
     ca-certificates \
@@ -47,15 +54,22 @@ RUN groupadd -r rootless && \
 # Switch to 'rootless' user
 USER rootless
 
-ENV XDG_RUNTIME_DIR="/home/rootless/.docker/run"
-ENV PATH="/home/rootless/bin:$PATH"
-ENV DOCKER_HOST="unix:///home/rootless/.docker/run/docker.sock"
-
-# Download and install rootless Docker
 RUN --security=insecure set -eux; \
-  curl -fsSL "https://get.docker.com/rootless" -o "$HOME/rootless.sh" && \
+    curl -fsSL "https://get.docker.com/rootless" -o "$HOME/rootless.sh" && \
     chmod +x "$HOME/rootless.sh" && \
     /bin/bash "$HOME/rootless.sh"
+
+# Docker buildx
+RUN --security=insecure set -eux; \
+    mkdir -p "$HOME/.docker/cli-plugins" && \
+    curl -SL "https://github.com/docker/buildx/releases/download/v${DOCKER_BUILDX_VERSION}/buildx-v${DOCKER_BUILDX_VERSION}.linux-amd64" -o "$HOME/.docker/cli-plugins/docker-buildx" && \
+    chmod +x "$HOME/.docker/cli-plugins/docker-buildx"
+
+# Docker compose
+RUN --security=insecure set -eux; \
+    mkdir -p "$HOME/.docker/cli-plugins" && \
+    curl -SL "https://github.com/docker/compose/releases/download/v${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" -o "$HOME/.docker/cli-plugins/docker-compose" && \
+    chmod +x "$HOME/.docker/cli-plugins/docker-compose"
 
 # Start Docker daemon
 ENTRYPOINT ["/home/rootless/bin/dockerd-rootless.sh"]
